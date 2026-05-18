@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Lab — TradingView × IFTTT Configurator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0d0f;
+    --bg2: #111518;
+    --bg3: #181d22;
+    --border: #232a31;
+    --border-hi: #2e3a45;
+    --accent: #00e5a0;
+    --accent2: #00b4ff;
+    --accent-dim: rgba(0,229,160,0.12);
+    --accent2-dim: rgba(0,180,255,0.10);
+    --warn: #ffb347;
+    --danger: #ff5050;
+    --text: #e2e8ed;
+    --text2: #7a8fa0;
+    --text3: #4a5a6a;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --radius: 10px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px);
+    pointer-events: none; z-index: 9999;
+  }
+
+  /* Header */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex; align-items: center; gap: 16px;
+    background: var(--bg);
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 14px; font-weight: 700; color: #000;
+  }
+  .logo-text { font-family: var(--mono); font-size: 15px; letter-spacing: 0.04em; }
+  .logo-text span { color: var(--accent); }
+  .header-badge {
+    margin-left: auto;
+    background: var(--accent-dim); border: 1px solid rgba(0,229,160,0.25);
+    color: var(--accent); font-family: var(--mono); font-size: 10px;
+    padding: 3px 10px; border-radius: 20px; letter-spacing: 0.08em;
+  }
+
+  /* Layout */
+  .app { display: grid; grid-template-columns: 340px 1fr; min-height: calc(100vh - 65px); }
+
+  /* Sidebar */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    background: var(--bg);
+  }
+
+  .section {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 24px;
+  }
+  .section-label {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.15em;
+    color: var(--text3); text-transform: uppercase; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  label {
+    display: block; font-size: 11px; color: var(--text2);
+    margin-bottom: 5px; letter-spacing: 0.03em;
+  }
+  input[type=text], input[type=url], select, textarea {
+    width: 100%; background: var(--bg2);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); font-family: var(--sans); font-size: 13px;
+    padding: 8px 12px; outline: none; transition: border-color 0.2s;
+    appearance: none;
+  }
+  input[type=text]:focus, input[type=url]:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,229,160,0.08);
+  }
+  textarea { resize: vertical; min-height: 80px; font-family: var(--mono); font-size: 11px; line-height: 1.6; }
+  select { cursor: pointer; }
+
+  .token-input { position: relative; }
+  .token-input input { padding-right: 40px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; }
+  .token-eye {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    cursor: pointer; color: var(--text3); font-size: 16px; line-height: 1;
+    user-select: none; transition: color 0.15s;
+  }
+  .token-eye:hover { color: var(--accent); }
+
+  /* Toggles */
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label { font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .toggle-icon { font-size: 15px; }
+  .toggle {
+    width: 36px; height: 20px; background: var(--bg3);
+    border: 1px solid var(--border-hi); border-radius: 10px;
+    position: relative; cursor: pointer; transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: var(--accent); border-color: var(--accent); }
+  .toggle::after {
+    content: ''; width: 14px; height: 14px; border-radius: 50%;
+    background: #fff; position: absolute; top: 2px; left: 2px;
+    transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(16px); background: #000; }
+
+  /* Chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .chip {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 3px 10px; font-size: 11px;
+    cursor: pointer; transition: all 0.15s; color: var(--text2);
+    font-family: var(--mono); letter-spacing: 0.03em;
+  }
+  .chip.active {
+    background: var(--accent-dim); border-color: rgba(0,229,160,0.4);
+    color: var(--accent);
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 18px; border-radius: var(--radius);
+    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    cursor: pointer; border: none; transition: all 0.18s;
+    letter-spacing: 0.02em;
+  }
+  .btn-primary {
+    background: var(--accent); color: #000;
+  }
+  .btn-primary:hover { background: #00ffb3; transform: translateY(-1px); }
+  .btn-ghost {
+    background: transparent; color: var(--text2);
+    border: 1px solid var(--border-hi);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger {
+    background: rgba(255,80,80,0.12); color: var(--danger);
+    border: 1px solid rgba(255,80,80,0.25);
+  }
+  .btn-danger:hover { background: rgba(255,80,80,0.22); }
+  .btn-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+
+  /* Main panel */
+  .main { display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Tabs */
+  .tabs {
+    display: flex; border-bottom: 1px solid var(--border);
+    background: var(--bg); padding: 0 28px;
+  }
+  .tab {
+    padding: 14px 18px; font-size: 12px; font-family: var(--mono);
+    color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent;
+    letter-spacing: 0.05em; transition: all 0.15s; margin-bottom: -1px;
+    user-select: none;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab:hover:not(.active) { color: var(--text2); }
+
+  /* Panels */
+  .panel { display: none; flex: 1; overflow-y: auto; padding: 28px; }
+  .panel.active { display: flex; flex-direction: column; gap: 20px; }
+
+  /* Code block */
+  .code-block {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .code-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+  }
+  .code-lang {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+    color: var(--text3); text-transform: uppercase;
+  }
+  .copy-btn {
+    font-family: var(--mono); font-size: 10px; color: var(--text3);
+    cursor: pointer; background: none; border: none; padding: 2px 8px;
+    border-radius: 4px; transition: all 0.15s; letter-spacing: 0.05em;
+  }
+  .copy-btn:hover { color: var(--accent); background: var(--accent-dim); }
+  .code-body { padding: 16px; overflow-x: auto; }
+  .code-body pre {
+    font-family: var(--mono); font-size: 11px; line-height: 1.8;
+    color: var(--text); white-space: pre;
+  }
+  .c-green { color: #00e5a0; }
+  .c-blue { color: #00b4ff; }
+  .c-yellow { color: #ffdb6a; }
+  .c-purple { color: #c792ea; }
+  .c-orange { color: #ffb347; }
+  .c-red { color: #ff6b6b; }
+  .c-gray { color: #5a6a7a; }
+
+  /* Info card */
+  .info-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px;
+  }
+  .info-card-title {
+    font-size: 12px; font-weight: 600; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot-green { background: var(--accent); }
+  .dot-blue { background: var(--accent2); }
+  .dot-warn { background: var(--warn); }
+
+  .step-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .step-item {
+    display: flex; align-items: flex-start; gap: 10px; font-size: 12px; color: var(--text2);
+  }
+  .step-num {
+    width: 20px; height: 20px; border-radius: 50%; background: var(--bg3);
+    border: 1px solid var(--border-hi); display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 9px; color: var(--text3); flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* Webhook URL preview */
+  .url-preview {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 16px;
+    font-family: var(--mono); font-size: 10px; color: var(--text2);
+    word-break: break-all; line-height: 1.7;
+  }
+  .url-preview .highlight { color: var(--accent); }
+  .url-preview .dim { color: var(--text3); }
+
+  /* AI response area */
+  .ai-box {
+    background: var(--bg2); border: 1px solid rgba(0,229,160,0.2);
+    border-radius: var(--radius); padding: 20px;
+    min-height: 120px; position: relative;
+  }
+  .ai-label {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em;
+    color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+  }
+  .ai-label .pulse {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+  .ai-content { font-size: 13px; line-height: 1.7; color: var(--text); white-space: pre-wrap; }
+  .ai-loading { display: flex; gap: 5px; align-items: center; padding: 4px 0; }
+  .ai-loading span {
+    width: 5px; height: 5px; background: var(--accent); border-radius: 50%;
+    animation: bounce 1.2s ease-in-out infinite;
+  }
+  .ai-loading span:nth-child(2) { animation-delay: 0.15s; }
+  .ai-loading span:nth-child(3) { animation-delay: 0.30s; }
+  @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
+
+  .ai-prompt-row { display: flex; gap: 8px; margin-top: 14px; }
+  .ai-input {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border-hi);
+    border-radius: var(--radius); color: var(--text); font-family: var(--sans);
+    font-size: 12px; padding: 8px 12px; outline: none;
+  }
+  .ai-input:focus { border-color: var(--accent); }
+
+  /* Signal preview */
+  .signal-preview {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .signal-card {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+    display: flex; align-items: center; gap: 14px;
+    transition: border-color 0.2s;
+  }
+  .signal-card:hover { border-color: var(--border-hi); }
+  .signal-badge {
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    padding: 4px 10px; border-radius: 5px; letter-spacing: 0.06em;
+    flex-shrink: 0;
+  }
+  .badge-buy { background: rgba(0,229,160,0.15); color: var(--accent); border: 1px solid rgba(0,229,160,0.3); }
+  .badge-sell { background: rgba(255,80,80,0.15); color: var(--danger); border: 1px solid rgba(255,80,80,0.3); }
+  .badge-neutral { background: rgba(255,179,71,0.15); color: var(--warn); border: 1px solid rgba(255,179,71,0.3); }
+  .signal-meta { flex: 1; }
+  .signal-pair { font-size: 13px; font-weight: 500; font-family: var(--mono); }
+  .signal-detail { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .signal-time { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+
+  /* Grid 2-col */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  /* Status indicator */
+  .status-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text2); margin-top: 8px; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); }
+  .status-dot.ok { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+
+  @media (max-width: 720px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { max-height: 55vh; }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">SL</div>
+    <div class="logo-text">Signal<span>Lab</span></div>
+  </div>
+  <div style="margin-left:16px;font-size:11px;color:var(--text3);font-family:var(--mono)">
+    TradingView × IFTTT Configurator
+  </div>
+  <div class="header-badge">AI-POWERED</div>
+</div>
+
+<div class="app">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <div class="sidebar">
+
+    <!-- IFTTT Credentials -->
+    <div class="section">
+      <div class="section-label">IFTTT Setup</div>
+      <div class="field">
+        <label>Webhook Key</label>
+        <div class="token-input">
+          <input type="password" id="ifttt-key" placeholder="paste your IFTTT key…" value="">
+          <span class="token-eye" onclick="toggleKey(this)">👁</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Event Name</label>
+        <input type="text" id="event-name" placeholder="e.g. trading_signal" value="trading_signal" oninput="refreshAll()">
+      </div>
+      <div class="field">
+        <label>Webhook URL preview</label>
+        <div class="url-preview" id="url-preview">
+          <span class="dim">https://maker.ifttt.com/trigger/</span><span class="highlight" id="url-event">trading_signal</span><span class="dim">/with/key/</span><span class="highlight" id="url-key">YOUR_KEY</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Signal Config -->
+    <div class="section">
+      <div class="section-label">Signal Config</div>
+      <div class="field">
+        <label>Symbol / Pair</label>
+        <input type="text" id="symbol" value="BTCUSDT" oninput="refreshAll()">
+      </div>
+      <div class="field">
+        <label>Timeframe</label>
+        <select id="timeframe" onchange="refreshAll()">
+          <option>1m</option><option>5m</option><option>15m</option>
+          <option selected>1h</option><option>4h</option><option>1D</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Signal Type</label>
+        <div class="chips">
+          <div class="chip active" onclick="selectSignal(this,'BUY')">BUY</div>
+          <div class="chip" onclick="selectSignal(this,'SELL')">SELL</div>
+          <div class="chip" onclick="selectSignal(this,'BOTH')">BOTH</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Strategy / Indicator</label>
+        <select id="strategy" onchange="refreshAll()">
+          <option value="rsi">RSI Overbought/Oversold</option>
+          <option value="ema">EMA Crossover</option>
+          <option value="macd">MACD Signal</option>
+          <option value="bb">Bollinger Band Breakout</option>
+          <option value="price">Price Level Alert</option>
+          <option value="custom">Custom Pine Script</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Output Channels -->
+    <div class="section">
+      <div class="section-label">Output Channels</div>
+      <div class="toggle-row">
+        <div class="toggle-label"><span class="toggle-icon">✉️</span> Email</div>
+        <div class="toggle on" onclick="this.classList.toggle('on');refreshAll()"></div>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-label"><span class="toggle-icon">📱</span> Telegram</div>
+        <div class="toggle on" onclick="this.classList.toggle('on');refreshAll()"></div>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-label"><span class="toggle-icon">💬</span> Slack</div>
+        <div class="toggle" onclick="this.classList.toggle('on');refreshAll()"></div>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-label"><span class="toggle-icon">📊</span> Google Sheets log</div>
+        <div class="toggle on" onclick="this.classList.toggle('on');refreshAll()"></div>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-label"><span class="toggle-icon">🔔</span> Push notification</div>
+        <div class="toggle" onclick="this.classList.toggle('on');refreshAll()"></div>
+      </div>
+    </div>
+
+    <!-- Advanced -->
+    <div class="section">
+      <div class="section-label">Advanced</div>
+      <div class="field">
+        <label>Custom JSON payload override</label>
+        <textarea id="custom-payload" placeholder='{"value1":"{{strategy.order.action}}","value2":"{{ticker}}","value3":"{{close}}"}'></textarea>
+      </div>
+      <div class="field">
+        <label>Middleware relay</label>
+        <div class="chips">
+          <div class="chip active" onclick="selectMW(this,'none')">None (direct)</div>
+          <div class="chip" onclick="selectMW(this,'vercel')">Vercel fn</div>
+          <div class="chip" onclick="selectMW(this,'railway')">Railway</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /sidebar -->
+
+  <!-- ═══ MAIN PANEL ═══ -->
+  <div class="main">
+
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('preview',this)">PREVIEW</div>
+      <div class="tab" onclick="showTab('pinescript',this)">PINE SCRIPT</div>
+      <div class="tab" onclick="showTab('payload',this)">JSON PAYLOAD</div>
+      <div class="tab" onclick="showTab('relay',this)">RELAY CODE</div>
+      <div class="tab" onclick="showTab('ai',this)">AI ASSISTANT</div>
+    </div>
+
+    <!-- ── PREVIEW ── -->
+    <div class="panel active" id="tab-preview">
+      <div class="grid2">
+        <div class="info-card">
+          <div class="info-card-title"><div class="dot dot-green"></div> Setup Checklist</div>
+          <div class="step-list">
+            <div class="step-item"><div class="step-num">1</div><span>Create IFTTT account &amp; get webhook key</span></div>
+            <div class="step-item"><div class="step-num">2</div><span>Create Applet: Webhooks → your channel</span></div>
+            <div class="step-item"><div class="step-num">3</div><span>Paste event name <code style="color:var(--accent);font-size:10px" id="preview-event">trading_signal</code></span></div>
+            <div class="step-item"><div class="step-num">4</div><span>Add alert in TradingView with webhook URL</span></div>
+            <div class="step-item"><div class="step-num">5</div><span>Paste Pine Script in your indicator</span></div>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-card-title"><div class="dot dot-blue"></div> Active Channels</div>
+          <div id="channel-list" style="font-size:12px;color:var(--text2);line-height:2">Loading…</div>
+        </div>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-title"><div class="dot dot-warn"></div> Signal Simulation</div>
+        <div class="signal-preview" id="signal-preview">
+          <!-- dynamically populated -->
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="simulateSignal('BUY')">▶ Simulate BUY</button>
+          <button class="btn btn-ghost" onclick="simulateSignal('SELL')">▶ Simulate SELL</button>
+          <button class="btn btn-danger" onclick="clearSignals()">✕ Clear</button>
+        </div>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-title"><div class="dot dot-blue"></div> Webhook URL</div>
+        <div class="url-preview" id="url-preview-2" style="margin-top:0">—</div>
+        <div class="status-row">
+          <div class="status-dot" id="status-dot"></div>
+          <span id="status-text">Enter your IFTTT key to activate</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="copyUrl()">📋 Copy URL</button>
+          <button class="btn btn-ghost" onclick="testWebhook()">⚡ Test webhook</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PINE SCRIPT ── -->
+    <div class="panel" id="tab-pinescript">
+      <div class="info-card" style="padding:12px 16px">
+        <div style="font-size:11px;color:var(--text2);line-height:1.6">
+          Generated for: <strong id="ps-symbol" style="color:var(--accent)">BTCUSDT</strong> &bull;
+          Strategy: <strong id="ps-strategy" style="color:var(--accent)">RSI</strong> &bull;
+          Timeframe: <strong id="ps-tf" style="color:var(--accent)">1h</strong>
+        </div>
+      </div>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-lang">pine script v5</div>
+          <button class="copy-btn" onclick="copyCode('ps-code')">copy</button>
+        </div>
+        <div class="code-body">
+          <pre id="ps-code">// Loading…</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── JSON PAYLOAD ── -->
+    <div class="panel" id="tab-payload">
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-lang">tradingview alert message (JSON)</div>
+          <button class="copy-btn" onclick="copyCode('json-code')">copy</button>
+        </div>
+        <div class="code-body">
+          <pre id="json-code">// Loading…</pre>
+        </div>
+      </div>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-lang">IFTTT trigger variables</div>
+          <button class="copy-btn" onclick="copyCode('ifttt-vars')">copy</button>
+        </div>
+        <div class="code-body">
+          <pre id="ifttt-vars">// Loading…</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RELAY CODE ── -->
+    <div class="panel" id="tab-relay">
+      <div class="info-card" style="padding:12px 16px">
+        <div style="font-size:11px;color:var(--text2)">
+          Optional Node.js middleware. Deploy to Vercel or Railway to handle multiple IFTTT triggers, logging, and filtering — all from one webhook endpoint.
+        </div>
+      </div>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-lang">relay/index.js (node.js)</div>
+          <button class="copy-btn" onclick="copyCode('relay-code')">copy</button>
+        </div>
+        <div class="code-body">
+          <pre id="relay-code">// Loading…</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AI ASSISTANT ── -->
+    <div class="panel" id="tab-ai">
+      <div class="ai-box">
+        <div class="ai-label"><div class="pulse"></div>AI ASSISTANT</div>
+        <div class="ai-content" id="ai-content">Ask me anything about your trading signal setup — strategy logic, IFTTT configuration, Pine Script debugging, or how to extend this to multiple pairs.</div>
+      </div>
+      <div class="ai-prompt-row">
+        <input class="ai-input" id="ai-input" type="text" placeholder="e.g. How do I add a take-profit level to the RSI strategy?" onkeydown="if(event.key==='Enter')askAI()">
+        <button class="btn btn-primary" onclick="askAI()">Ask ↗</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+        <div class="chip" onclick="quickAsk('How does RSI alerting work in Pine Script v5?')">RSI alerts?</div>
+        <div class="chip" onclick="quickAsk('What IFTTT plan do I need for multiple applets?')">IFTTT plans?</div>
+        <div class="chip" onclick="quickAsk('How do I log signals to Google Sheets via IFTTT?')">Sheets logging?</div>
+        <div class="chip" onclick="quickAsk('How do I send signals to Telegram?')">Telegram setup?</div>
+        <div class="chip" onclick="quickAsk('What are the best risk management rules for automated signals?')">Risk management?</div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────
+let state = {
+  key: '', event: 'trading_signal', symbol: 'BTCUSDT',
+  timeframe: '1h', signal: 'BUY', strategy: 'rsi', middleware: 'none',
+  signals: []
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────
+function $id(id) { return document.getElementById(id); }
+function now() {
+  return new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+function fakePrice(sym) {
+  const bases = { BTC:65420,ETH:3180,SOL:148,BNB:572,ADA:0.48,XRP:0.62,DEFAULT:100 };
+  const base = bases[sym.replace('USDT','').replace('USD','').replace('BUSD','')] || bases.DEFAULT;
+  return (base * (1 + (Math.random()-0.5)*0.004)).toFixed(sym.includes('ADA')||sym.includes('XRP')?4:2);
+}
+
+// ─── Sync inputs ──────────────────────────────────────────────────────
+function syncState() {
+  state.key   = $id('ifttt-key').value.trim();
+  state.event = $id('event-name').value.trim() || 'trading_signal';
+  state.symbol = $id('symbol').value.trim().toUpperCase() || 'BTCUSDT';
+  state.timeframe = $id('timeframe').value;
+  state.strategy  = $id('strategy').value;
+}
+
+function refreshAll() {
+  syncState();
+  updateUrlPreviews();
+  updatePineScript();
+  updatePayload();
+  updateRelayCode();
+  updatePreviewPanel();
+}
+
+// ─── Key toggle ───────────────────────────────────────────────────────
+function toggleKey(el) {
+  const inp = $id('ifttt-key');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+// ─── URL previews ─────────────────────────────────────────────────────
+function updateUrlPreviews() {
+  const e = state.event, k = state.key || 'YOUR_KEY';
+  const url = `https://maker.ifttt.com/trigger/${e}/with/key/${k}`;
+  $id('url-event').textContent = e;
+  $id('url-key').textContent = k;
+  $id('url-preview-2').innerHTML =
+    `<span style="color:var(--text3)">https://maker.ifttt.com/trigger/</span><span style="color:var(--accent)">${e}</span><span style="color:var(--text3)">/with/key/</span><span style="color:var(--accent)">${k}</span>`;
+  $id('preview-event').textContent = e;
+  const dot = $id('status-dot'), txt = $id('status-text');
+  if (state.key) { dot.classList.add('ok'); txt.textContent = 'Ready — webhook URL configured'; }
+  else { dot.classList.remove('ok'); txt.textContent = 'Enter your IFTTT key to activate'; }
+}
+
+// ─── Signals ──────────────────────────────────────────────────────────
+function selectSignal(el, val) {
+  document.querySelectorAll('.chips .chip').forEach(c => {
+    if (c.onclick.toString().includes('selectSignal')) c.classList.remove('active');
+  });
+  el.classList.add('active'); state.signal = val; refreshAll();
+}
+function selectMW(el, val) {
+  document.querySelectorAll('.chips .chip').forEach(c => {
+    if (c.onclick.toString().includes('selectMW')) c.classList.remove('active');
+  });
+  el.classList.add('active'); state.middleware = val; refreshAll();
+}
+
+function simulateSignal(type) {
+  const price = fakePrice(state.symbol);
+  state.signals.unshift({ type, symbol: state.symbol, price, time: now(), tf: state.timeframe });
+  if (state.signals.length > 5) state.signals.pop();
+  renderSignals();
+}
+function clearSignals() { state.signals = []; renderSignals(); }
+function renderSignals() {
+  const el = $id('signal-preview');
+  if (!state.signals.length) { el.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:6px 0">No signals yet — click Simulate above</div>'; return; }
+  el.innerHTML = state.signals.map(s => `
+    <div class="signal-card">
+      <div class="signal-badge badge-${s.type==='BUY'?'buy':'sell'}">${s.type}</div>
+      <div class="signal-meta">
+        <div class="signal-pair">${s.symbol}</div>
+        <div class="signal-detail">Price: $${s.price} &bull; TF: ${s.tf}</div>
+      </div>
+      <div class="signal-time">${s.time}</div>
+    </div>`).join('');
+}
+
+// ─── Channel list ─────────────────────────────────────────────────────
+function updatePreviewPanel() {
+  const toggles = document.querySelectorAll('.toggle-row');
+  const labels = ['Email','Telegram','Slack','Google Sheets','Push'];
+  const icons  = ['✉️','📱','💬','📊','🔔'];
+  let html = '';
+  toggles.forEach((row,i)=>{
+    const on = row.querySelector('.toggle').classList.contains('on');
+    html += `<div style="display:flex;align-items:center;gap:8px;color:${on?'var(--accent)':'var(--text3)'}">
+      <span>${icons[i]}</span><span>${labels[i]}</span>
+      ${on?'<span style="margin-left:auto;font-size:10px;font-family:var(--mono);color:var(--accent)">ON</span>':''}
+    </div>`;
+  });
+  $id('channel-list').innerHTML = html;
+}
+
+// ─── Pine Script ──────────────────────────────────────────────────────
+function pineForStrategy(s, sym, tf, event, key) {
+  const url = `https://maker.ifttt.com/trigger/${event}/with/key/${key||'YOUR_KEY'}`;
+  const strategies = {
+    rsi: `<span class="c-gray">// RSI Overbought/Oversold — ${sym} ${tf}</span>
+<span class="c-purple">//@version=5</span>
+<span class="c-green">indicator</span>(<span class="c-yellow">"SignalLab RSI — ${sym}"</span>, overlay=<span class="c-blue">true</span>)
+
+<span class="c-gray">// ── Inputs ────────────────────────────────</span>
+rsiLen  = <span class="c-green">input.int</span>(<span class="c-orange">14</span>, <span class="c-yellow">"RSI Length"</span>)
+overbought = <span class="c-green">input.int</span>(<span class="c-orange">70</span>, <span class="c-yellow">"Overbought"</span>)
+oversold   = <span class="c-green">input.int</span>(<span class="c-orange">30</span>, <span class="c-yellow">"Oversold"</span>)
+
+<span class="c-gray">// ── Logic ─────────────────────────────────</span>
+rsi = <span class="c-green">ta.rsi</span>(close, rsiLen)
+
+buySignal  = <span class="c-green">ta.crossover</span>(rsi, oversold)
+sellSignal = <span class="c-green">ta.crossunder</span>(rsi, overbought)
+
+<span class="c-gray">// ── Alerts ────────────────────────────────</span>
+<span class="c-green">alertcondition</span>(buySignal,  title=<span class="c-yellow">"BUY Signal"</span>,
+  message=<span class="c-yellow">'{"value1":"BUY","value2":"${sym}","value3":"' </span>+ <span class="c-green">str.tostring</span>(close) + <span class="c-yellow">'"}'</span>)
+
+<span class="c-green">alertcondition</span>(sellSignal, title=<span class="c-yellow">"SELL Signal"</span>,
+  message=<span class="c-yellow">'{"value1":"SELL","value2":"${sym}","value3":"' </span>+ <span class="c-green">str.tostring</span>(close) + <span class="c-yellow">'"}'</span>)
+
+<span class="c-gray">// ── Visuals ───────────────────────────────</span>
+<span class="c-green">plotshape</span>(buySignal,  style=shape.triangleup,   color=color.green, location=location.belowbar, size=size.small)
+<span class="c-green">plotshape</span>(sellSignal, style=shape.triangledown, color=color.red,   location=location.abovebar, size=size.small)`,
+
+    ema: `<span class="c-gray">// EMA Crossover — ${sym} ${tf}</span>
+<span class="c-purple">//@version=5</span>
+<span class="c-green">indicator</span>(<span class="c-yellow">"SignalLab EMA — ${sym}"</span>, overlay=<span class="c-blue">true</span>)
+
+fastLen = <span class="c-green">input.int</span>(<span class="c-orange">9</span>,  <span class="c-yellow">"Fast EMA"</span>)
+slowLen = <span class="c-green">input.int</span>(<span class="c-orange">21</span>, <span class="c-yellow">"Slow EMA"</span>)
+
+emaFast = <span class="c-green">ta.ema</span>(close, fastLen)
+emaSlow = <span class="c-green">ta.ema</span>(close, slowLen)
+
+buySignal  = <span class="c-green">ta.crossover</span>(emaFast, emaSlow)
+sellSignal = <span class="c-green">ta.crossunder</span>(emaFast, emaSlow)
+
+<span class="c-green">alertcondition</span>(buySignal,  title=<span class="c-yellow">"BUY"</span>,
+  message=<span class="c-yellow">'{"value1":"BUY","value2":"${sym}","value3":"'</span> + <span class="c-green">str.tostring</span>(close) + <span class="c-yellow">'"}'</span>)
+<span class="c-green">alertcondition</span>(sellSignal, title=<span class="c-yellow">"SELL"</span>,
+  message=<span class="c-yellow">'{"value1":"SELL","value2":"${sym}","value3":"'</span> + <span class="c-green">str.tostring</span>(close) + <span class="c-yellow">'"}'</span>)
+
+<span class="c-green">plot</span>(emaFast, color=color.green, linewidth=1)
+<span class="c-green">plot</span>(emaSlow, color=color.red,   linewidth=1)`,
+
+    macd: `<span class="c-gray">// MACD Signal — ${sym} ${tf}</span>
+<span class="c-purple">//@version=5</span>
+<span class="c-green">indicator</span>(<span class="c-yellow">"SignalLab MACD — ${sym}"</span>, overlay=<span class="c-blue">false</span>)
+
+[macdLine, signalLine, hist] = <span class="c-green">ta.macd</span>(close, <span class="c-orange">12</span>, <span class="c-orange">26</span>, <span class="c-orange">9</span>)
+
+buySignal  = <span class="c-green">ta.crossover</span>(macdLine, signalLine)
+sellSignal = <span class="c-green">ta.crossunder</span>(macdLine, signalLine)
+
+<span class="c-green">alertcondition</span>(buySignal,
+  message=<span class="c-yellow">'{"value1":"BUY","value2":"${sym}","value3":"'</span> + <span class="c-green">str.tostring</span>(close) + <span class="c-yellow">'"}'</span>)
+<span class="c-green">alertcondition</span>(sellSignal,
+  message=<span class="c-yellow">'{"value1":"SELL","value2":"${sym}","value3":"'</span> + <span class="c-green">str.tostring</span>(close) + <span class="c-yellow">'"}'</span>)
+
+<span class="c-green">plot</span>(macdLine,   color=color.blue)
+<span class="c-green">plot</span>(signalLine, color=color.orange)
+<span class="c-green">plot</span>(hist, style=plot.style_histogram, color=hist>0?color.green:color.red)`,
+
+    bb: `<span class="c-gray">// Bollinger Band Breakout — ${sym} ${tf}</span>
+<span class="c-purple">//@version=5</span>
+<span class="c-green">indicator</span>(<span class="c-yellow">"SignalLab BB — ${sym}"</span>, overlay=<span class="c-blue">true</span>)
+
+bbLen   = <span class="c-green">input.int</span>(<span class="c-orange">20</span>, <span class="c-yellow">"BB Length"</span>)
+bbMult  = <span class="c-green">input.float</span>(<span class="c-orange">2.0</span>, <span class="c-yellow">"StdDev Mult"</span>)
+
+[upper, basis, lower] = <span class="c-green">ta.bb</span>(close, bbLen, bbMult)
+
+buySignal  = close > upper
+sellSignal = close < lower
+
+<span class="c-green">alertcondition</span>(buySignal,
+  message=<span class="c-yellow">'{"value1":"BUY","value2":"${sym}","value3":"'</span> + <span class="c-green">str.tostring</span>(close) + <span class="c-yellow">'"}'</span>)
+<span class="c-green">alertcondition</span>(sellSignal,
+  message=<span class="c-yellow">'{"value1":"SELL","value2":"${sym}","value3":"'</span> + <span class="c-green">str.tostring</span>(close) + <span class="c-yellow">'"}'</span>)
+
+<span class="c-green">plot</span>(upper, color=color.red,   linewidth=1)
+<span class="c-green">plot</span>(basis, color=color.gray,  linewidth=1)
+<span class="c-green">plot</span>(lower, color=color.green, linewidth=1)`,
+
+    price: `<span class="c-gray">// Price Level Alert — ${sym} ${tf}</span>
+<span class="c-purple">//@version=5</span>
+<span class="c-green">indicator</span>(<span class="c-yellow">"SignalLab Price — ${sym}"</span>, overlay=<span class="c-blue">true</span>)
+
+buyLevel  = <span class="c-green">input.float</span>(<span class="c-orange">0.0</span>, <span class="c-yellow">"Buy at price"</span>)
+sellLevel = <span class="c-green">input.float</span>(<span class="c-orange">0.0</span>, <span class="c-yellow">"Sell at price"</span>)
+
+buySignal  = buyLevel  > 0 and <span class="c-green">ta.crossover</span>(close, buyLevel)
+sellSignal = sellLevel > 0 and <span class="c-green">ta.crossunder</span>(close, sellLevel)
+
+<span class="c-green">alertcondition</span>(buySignal,
+  message=<span class="c-yellow">'{"value1":"BUY","value2":"${sym}","value3":"'</span> + <span class="c-green">str.tostring</span>(close) + <span class="c-yellow">'"}'</span>)
+<span class="c-green">alertcondition</span>(sellSignal,
+  message=<span class="c-yellow">'{"value1":"SELL","value2":"${sym}","value3":"'</span> + <span class="c-green">str.tostring</span>(close) + <span class="c-yellow">'"}'</span>)`,
+
+    custom: `<span class="c-gray">// Custom Pine Script — ${sym} ${tf}</span>
+<span class="c-gray">// Replace the condition below with your own logic</span>
+<span class="c-purple">//@version=5</span>
+<span class="c-green">indicator</span>(<span class="c-yellow">"SignalLab Custom — ${sym}"</span>, overlay=<span class="c-blue">true</span>)
+
+<span class="c-gray">// ── Your custom logic here ─────────────────</span>
+myCondition = close > close[1]  <span class="c-gray">// example: bullish candle</span>
+
+<span class="c-green">alertcondition</span>(myCondition, title=<span class="c-yellow">"Custom Signal"</span>,
+  message=<span class="c-yellow">'{"value1":"SIGNAL","value2":"${sym}","value3":"'</span> + <span class="c-green">str.tostring</span>(close) + <span class="c-yellow">'"}'</span>)`
+  };
+  return strategies[s] || strategies.rsi;
+}
+
+function updatePineScript() {
+  $id('ps-symbol').textContent   = state.symbol;
+  $id('ps-strategy').textContent = $id('strategy').options[$id('strategy').selectedIndex].text.split(' ')[0];
+  $id('ps-tf').textContent       = state.timeframe;
+  $id('ps-code').innerHTML = pineForStrategy(state.strategy, state.symbol, state.timeframe, state.event, state.key);
+}
+
+// ─── Payload ──────────────────────────────────────────────────────────
+function updatePayload() {
+  const custom = $id('custom-payload').value.trim();
+  const payload = custom || `{
+  "value1": "BUY",
+  "value2": "${state.symbol}",
+  "value3": "{{close}}"
+}`;
+  $id('json-code').innerHTML =
+    `<span class="c-gray">// Paste this in TradingView Alert → Message box</span>
+<span class="c-gray">// TradingView dynamic variables are in {{double braces}}</span>
+
+<span class="c-blue">{</span>
+  <span class="c-green">"value1"</span>: <span class="c-yellow">"{{strategy.order.action}}"</span>,  <span class="c-gray">// BUY or SELL</span>
+  <span class="c-green">"value2"</span>: <span class="c-yellow">"${state.symbol}"</span>,
+  <span class="c-green">"value3"</span>: <span class="c-yellow">"{{close}}"</span>            <span class="c-gray">// closing price</span>
+<span class="c-blue">}</span>`;
+
+  $id('ifttt-vars').innerHTML =
+    `<span class="c-gray">// In IFTTT action, use these placeholders:</span>
+<span class="c-green">{{Value1}}</span>  <span class="c-gray">→ Signal type (BUY / SELL)</span>
+<span class="c-green">{{Value2}}</span>  <span class="c-gray">→ Symbol (${state.symbol})</span>
+<span class="c-green">{{Value3}}</span>  <span class="c-gray">→ Price at signal</span>
+<span class="c-green">{{OccurredAt}}</span> <span class="c-gray">→ Timestamp (auto-added by IFTTT)</span>
+
+<span class="c-gray">// Example Telegram message template:</span>
+<span class="c-yellow">"⚡ {{Value1}} signal on {{Value2}} at ${{Value3}} | {{OccurredAt}}"</span>`;
+}
+
+// ─── Relay code ───────────────────────────────────────────────────────
+function updateRelayCode() {
+  const k = state.key || 'YOUR_IFTTT_KEY';
+  const e = state.event;
+  $id('relay-code').innerHTML =
+`<span class="c-gray">// relay/index.js — deploy to Vercel or Railway</span>
+<span class="c-gray">// Set env var: IFTTT_KEY=your_key</span>
+
+<span class="c-purple">const</span> express = <span class="c-green">require</span>(<span class="c-yellow">'express'</span>)
+<span class="c-purple">const</span> fetch   = <span class="c-green">require</span>(<span class="c-yellow">'node-fetch'</span>)
+<span class="c-purple">const</span> app = express()
+app.<span class="c-green">use</span>(express.json())
+
+<span class="c-purple">const</span> IFTTT_KEY   = process.env.IFTTT_KEY
+<span class="c-purple">const</span> EVENT_NAME  = <span class="c-yellow">'${e}'</span>
+<span class="c-purple">const</span> IFTTT_URL   = \`https://maker.ifttt.com/trigger/\${EVENT_NAME}/with/key/\${IFTTT_KEY}\`
+
+app.<span class="c-green">post</span>(<span class="c-yellow">'/webhook'</span>, <span class="c-purple">async</span> (req, res) => {
+  <span class="c-purple">const</span> { value1, value2, value3 } = req.body
+
+  <span class="c-gray">// Optional: filter by symbol</span>
+  <span class="c-purple">if</span> (value2 !== <span class="c-yellow">'${state.symbol}'</span>) {
+    <span class="c-purple">return</span> res.<span class="c-green">json</span>({ ok: <span class="c-blue">false</span>, reason: <span class="c-yellow">'symbol mismatch'</span> })
+  }
+
+  <span class="c-gray">// Forward to IFTTT</span>
+  <span class="c-purple">const</span> r = <span class="c-purple">await</span> <span class="c-green">fetch</span>(IFTTT_URL, {
+    method: <span class="c-yellow">'POST'</span>,
+    headers: { <span class="c-yellow">'Content-Type'</span>: <span class="c-yellow">'application/json'</span> },
+    body: JSON.<span class="c-green">stringify</span>({ value1, value2, value3 })
+  })
+
+  console.<span class="c-green">log</span>(\`[\${<span class="c-purple">new</span> Date().<span class="c-green">toISOString</span>()}] \${value1} \${value2} @ \${value3}\`)
+  res.<span class="c-green">json</span>({ ok: r.ok, status: r.status })
+})
+
+app.<span class="c-green">listen</span>(<span class="c-orange">3000</span>, () => console.<span class="c-green">log</span>(<span class="c-yellow">'Relay listening on :3000'</span>))`;
+}
+
+// ─── Copy ─────────────────────────────────────────────────────────────
+function copyCode(id) {
+  const el = $id(id);
+  navigator.clipboard.writeText(el.innerText).then(()=>{
+    const btn = el.closest('.code-block').querySelector('.copy-btn');
+    btn.textContent = 'copied!'; btn.style.color = 'var(--accent)';
+    setTimeout(()=>{ btn.textContent='copy'; btn.style.color=''; }, 2000);
+  });
+}
+function copyUrl() {
+  const k = state.key || 'YOUR_KEY';
+  navigator.clipboard.writeText(`https://maker.ifttt.com/trigger/${state.event}/with/key/${k}`);
+}
+function testWebhook() {
+  if (!state.key) { alert('Enter your IFTTT key first.'); return; }
+  const url = `https://maker.ifttt.com/trigger/${state.event}/with/key/${state.key}`;
+  fetch(url, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ value1:'TEST', value2: state.symbol, value3: fakePrice(state.symbol) })
+  }).then(r => {
+    const dot = $id('status-dot'), txt = $id('status-text');
+    if (r.ok) { dot.classList.add('ok'); txt.textContent = `✓ Test sent at ${now()}`; }
+    else { dot.classList.remove('ok'); txt.textContent = `✗ Error ${r.status} — check key/event name`; }
+  }).catch(()=>{
+    $id('status-text').textContent = '✗ Network error — check key and try again';
+  });
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────
+function showTab(id, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  $id('tab-'+id).classList.add('active');
+  el.classList.add('active');
+}
+
+// ─── AI assistant ─────────────────────────────────────────────────────
+async function askAI() {
+  const input = $id('ai-input');
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+  const box = $id('ai-content');
+
+  // Show context about current setup
+  const ctx = `The user is configuring a TradingView → IFTTT trading signal setup with these settings:
+- Symbol: ${state.symbol}
+- Timeframe: ${state.timeframe}
+- Strategy: ${$id('strategy').options[$id('strategy').selectedIndex].text}
+- Signal type: ${state.signal}
+- IFTTT event name: "${state.event}"
+- Middleware: ${state.middleware}
+Answer concisely and practically. Focus on Pine Script, IFTTT, and signal configuration.`;
+
+  box.innerHTML = '<div class="ai-loading"><span></span><span></span><span></span></div>';
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: ctx,
+        messages: [{ role: 'user', content: q }]
+      })
+    });
+    const data = await res.json();
+    const text = data?.content?.[0]?.text || 'No response.';
+    box.textContent = text;
+  } catch(e) {
+    box.textContent = 'Could not reach AI — check your connection and try again.';
+  }
+}
+
+function quickAsk(q) {
+  $id('ai-input').value = q;
+  showTab('ai', document.querySelectorAll('.tab')[4]);
+  askAI();
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────
+$id('ifttt-key').addEventListener('input', ()=>{
+  state.key = $id('ifttt-key').value.trim(); updateUrlPreviews();
+});
+
+refreshAll();
+renderSignals();
+</script>
+</body>
+</html>
